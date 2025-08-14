@@ -434,6 +434,7 @@ type CreateRequest struct {
 	From       string            `json:"from,omitempty"`
 	Files      map[string]string `json:"files,omitempty"`
 	Adapters   map[string]string `json:"adapters,omitempty"`
+	Remotes    map[string]string `json:"remotes,omitempty"`
 	Template   string            `json:"template,omitempty"`
 	License    any               `json:"license,omitempty"`
 	System     string            `json:"system,omitempty"`

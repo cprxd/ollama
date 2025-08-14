@@ -239,6 +239,9 @@ type ConfigV2 struct {
 	ModelType     string   `json:"model_type"`
 	FileType      string   `json:"file_type"`
 
+	RemoteURL   string `json:"remote_url,omitempty"`
+	RemoteModel string `json:"remote_model,omitempty"`
+
 	// required by spec
 	Architecture string `json:"architecture"`
 	OS           string `json:"os"`

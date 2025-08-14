@@ -726,6 +726,21 @@ MESSAGE assistant Hi! How are you?
 				},
 			},
 		},
+		{
+			`REMOTE ollama https://ollama.com
+FROM test-model:turbo@ollama
+PARAMETER temperature 0.5
+SYSTEM You are a turbo bot.
+LICENSE license1
+`,
+			&api.CreateRequest{
+				Remotes:    map[string]string{"ollama": "https://ollama.com"},
+				From:       "test-model:turbo@ollama",
+				Parameters: map[string]any{"temperature": float32(0.5)},
+				License:    []string{"license1"},
+				System:     "You are a turbo bot.",
+			},
+		},
 	}
 
 	for _, c := range cases {

@@ -15,6 +15,7 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
+	"net/url"
 	"os"
 	"os/signal"
 	"slices"
@@ -185,6 +186,65 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
+		return
+	}
+
+	if m.Config.RemoteURL != "" && m.Config.RemoteModel != "" {
+		origModel := req.Model
+		req.Model = m.Config.RemoteModel
+
+		if req.Template == "" && m.Template.String() != "" {
+			req.Template = m.Template.String()
+		}
+
+		if req.Options == nil {
+			req.Options = map[string]any{}
+		}
+
+		for k, v := range m.Options {
+			if _, ok := req.Options[k]; !ok {
+				req.Options[k] = v
+			}
+		}
+
+		// update the system prompt from the model if one isn't already specified
+		if req.System == "" && m.System != "" {
+			req.System = m.System
+		}
+
+		if len(m.Messages) > 0 {
+			slog.Warn("embedded messages in the model not supported with '/api/generate'; try '/api/chat' instead")
+		}
+
+		fn := func(resp api.GenerateResponse) error {
+			resp.Model = origModel
+
+			data, err := json.Marshal(resp)
+			if err != nil {
+				return err
+			}
+
+			if _, err = c.Writer.Write(append(data, '\n')); err != nil {
+				return err
+			}
+			c.Writer.Flush()
+			return nil
+		}
+
+		remoteURL, err := url.Parse(m.Config.RemoteURL)
+		if err != nil {
+			// todo request error?
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		client := api.NewClient(remoteURL, http.DefaultClient)
+		err = client.Generate(c, &req, fn)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
 		return
 	}
 
@@ -951,6 +1011,11 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 	fmt.Fprint(&sb, m.String())
 	resp.Modelfile = sb.String()
 
+	// skip loading tensor information if this is a remote model
+	if m.Config.RemoteURL != "" && m.Config.RemoteModel != "" {
+		return resp, nil
+	}
+
 	kvData, tensors, err := getModelData(m.ModelPath, req.Verbose)
 	if err != nil {
 		return nil, err
@@ -1543,21 +1608,34 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		return
 	}
 
-	// expire the runner
-	if len(req.Messages) == 0 && req.KeepAlive != nil && req.KeepAlive.Duration == 0 {
-		model, err := GetModel(req.Model)
-		if err != nil {
-			switch {
-			case os.IsNotExist(err):
-				c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
-			case err.Error() == errtypes.InvalidModelNameErrMsg:
-				c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			default:
-				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			}
-			return
+	name := model.ParseName(req.Model)
+	if !name.IsValid() {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "model is required"})
+		return
+	}
+
+	name, err := getExistingName(name)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "model is required"})
+		return
+	}
+
+	m, err := GetModel(req.Model)
+	if err != nil {
+		switch {
+		case os.IsNotExist(err):
+			c.JSON(http.StatusNotFound, gin.H{"error": fmt.Sprintf("model '%s' not found", req.Model)})
+		case err.Error() == errtypes.InvalidModelNameErrMsg:
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		}
-		s.sched.expireRunner(model)
+		return
+	}
+
+	// expire the runner
+	if len(req.Messages) == 0 && req.KeepAlive != nil && int(req.KeepAlive.Seconds()) == 0 {
+		s.sched.expireRunner(m)
 
 		c.JSON(http.StatusOK, api.ChatResponse{
 			Model:      req.Model,
@@ -1569,23 +1647,64 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		return
 	}
 
+	if m.Config.RemoteURL != "" && m.Config.RemoteModel != "" {
+		origModel := req.Model
+
+		req.Model = m.Config.RemoteModel
+		if req.Options == nil {
+			req.Options = map[string]any{}
+		}
+
+		msgs := append(m.Messages, req.Messages...)
+		if req.Messages[0].Role != "system" && m.System != "" {
+			msgs = append([]api.Message{{Role: "system", Content: m.System}}, msgs...)
+		}
+		msgs = filterThinkTags(msgs, m)
+		req.Messages = msgs
+
+		for k, v := range m.Options {
+			if _, ok := req.Options[k]; !ok {
+				req.Options[k] = v
+			}
+		}
+		remoteURL, err := url.Parse(m.Config.RemoteURL)
+		if err != nil {
+			// todo request error?
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		fn := func(resp api.ChatResponse) error {
+			resp.Model = origModel
+
+			data, err := json.Marshal(resp)
+			if err != nil {
+				return err
+			}
+
+			if _, err = c.Writer.Write(append(data, '\n')); err != nil {
+				return err
+			}
+			c.Writer.Flush()
+			return nil
+		}
+
+		client := api.NewClient(remoteURL, http.DefaultClient)
+		err = client.Chat(c, &req, fn)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		return
+	}
+
 	caps := []model.Capability{model.CapabilityCompletion}
 	if len(req.Tools) > 0 {
 		caps = append(caps, model.CapabilityTools)
 	}
 	if req.Think != nil && req.Think.Bool() {
 		caps = append(caps, model.CapabilityThinking)
-	}
-
-	name := model.ParseName(req.Model)
-	if !name.IsValid() {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "model is required"})
-		return
-	}
-	name, err := getExistingName(name)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "model is required"})
-		return
 	}
 
 	r, m, opts, err := s.scheduleRunner(c.Request.Context(), name.String(), caps, req.Options, req.KeepAlive)
