@@ -1650,6 +1650,18 @@ func (s *Server) ChatHandler(c *gin.Context) {
 	if m.Config.RemoteURL != "" && m.Config.RemoteModel != "" {
 		origModel := req.Model
 
+		u, err := url.Parse(m.Config.RemoteURL)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		if !slices.Contains(envconfig.Remotes(), u.Hostname()) {
+			slog.Info("remote model", "remotes", envconfig.Remotes(), "remoteURL", m.Config.RemoteURL)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "this server cannot run this remote model"})
+			return
+		}
+
 		req.Model = m.Config.RemoteModel
 		if req.Options == nil {
 			req.Options = map[string]any{}
