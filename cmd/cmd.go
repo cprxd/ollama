@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -35,6 +36,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/ollama/ollama/api"
+	"github.com/ollama/ollama/auth"
 	"github.com/ollama/ollama/envconfig"
 	"github.com/ollama/ollama/format"
 	"github.com/ollama/ollama/parser"
@@ -288,7 +290,17 @@ func loadOrUnloadModel(cmd *cobra.Command, opts *runOptions) error {
 		Think: opts.Think,
 	}
 
-	return client.Generate(cmd.Context(), req, func(api.GenerateResponse) error { return nil })
+	return client.Generate(cmd.Context(), req, func(r api.GenerateResponse) error {
+		if r.RemoteModel != "" && opts.ShowConnect {
+			p.StopAndClear()
+			if strings.HasPrefix(r.RemoteURL, "https://ollama.com") {
+				fmt.Printf("Connecting to '%s' on Ollama Turbo ⚡\n", r.RemoteModel)
+			} else {
+				fmt.Printf("Connecting to '%s' on '%s'\n", r.RemoteModel, r.RemoteURL)
+			}
+		}
+		return nil
+	})
 }
 
 func StopHandler(cmd *cobra.Command, args []string) error {
@@ -309,9 +321,10 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 	interactive := true
 
 	opts := runOptions{
-		Model:    args[0],
-		WordWrap: os.Getenv("TERM") == "xterm-256color",
-		Options:  map[string]any{},
+		Model:       args[0],
+		WordWrap:    os.Getenv("TERM") == "xterm-256color",
+		Options:     map[string]any{},
+		ShowConnect: true,
 	}
 
 	format, err := cmd.Flags().GetString("format")
@@ -435,6 +448,21 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 
 	if interactive {
 		if err := loadOrUnloadModel(cmd, &opts); err != nil {
+			var sErr api.AuthorizationError
+			if errors.As(err, &sErr) && sErr.StatusCode == http.StatusUnauthorized {
+				pubKey, pkErr := auth.GetPublicKey()
+				if pkErr != nil {
+					return pkErr
+				}
+				// the server and the client both have the same public key
+				if pubKey == sErr.PublicKey {
+					encKey := base64.RawURLEncoding.EncodeToString([]byte(pubKey))
+					fmt.Println("You need to be signed-in to Ollama to run Turbo models.\n")
+					fmt.Println("To sign-in and connect your Ollama instance, navigate to:\n")
+					fmt.Printf("    https://ollama.com/connect?key=%s\n\n", encKey)
+				}
+				return nil
+			}
 			return err
 		}
 
@@ -991,6 +1019,7 @@ type runOptions struct {
 	KeepAlive    *api.Duration
 	Think        *api.ThinkValue
 	HideThinking bool
+	ShowConnect  bool
 }
 
 type displayResponseState struct {
@@ -1294,6 +1323,7 @@ func generate(cmd *cobra.Command, opts runOptions) error {
 	}
 
 	if err := client.Generate(ctx, &request, fn); err != nil {
+
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}

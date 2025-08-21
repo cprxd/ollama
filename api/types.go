@@ -36,6 +36,21 @@ func (e StatusError) Error() string {
 	}
 }
 
+type AuthorizationError struct {
+	StatusCode int
+	Status     string
+	PublicKey  string `json:"public_key"`
+}
+
+func (e AuthorizationError) Error() string {
+	switch {
+	case e.Status != "":
+		return e.Status
+	default:
+		return "something went wrong, please see the ollama server logs for details"
+	}
+}
+
 // ImageData represents the raw binary data of an image file.
 type ImageData []byte
 
@@ -313,12 +328,26 @@ func (t *ToolFunction) String() string {
 // ChatResponse is the response returned by [Client.Chat]. Its fields are
 // similar to [GenerateResponse].
 type ChatResponse struct {
-	Model      string    `json:"model"`
-	CreatedAt  time.Time `json:"created_at"`
-	Message    Message   `json:"message"`
-	DoneReason string    `json:"done_reason,omitempty"`
+	// Model is the model name that generated the response.
+	Model string `json:"model"`
 
+	// RemoteModel is the name of the upstream model that generated the response.
+	RemoteModel string `json:"remote_model,omitempty"`
+
+	// RemoteURL is the URL of the upstream Ollama host that generated the response.
+	RemoteURL string `json:"remote_host,omitempty"`
+
+	// CreatedAt is the timestamp of the response.
+	CreatedAt time.Time `json:"created_at"`
+
+	// Message contains the message or part of a message from the model.
+	Message Message `json:"message"`
+
+	// Done specifies if the response is complete.
 	Done bool `json:"done"`
+
+	// DoneReason is the reason the model stopped generating text.
+	DoneReason string `json:"done_reason,omitempty"`
 
 	Metrics
 }
@@ -565,6 +594,12 @@ type TokenResponse struct {
 type GenerateResponse struct {
 	// Model is the model name that generated the response.
 	Model string `json:"model"`
+
+	// RemoteModel is the name of the upstream model that generated the response.
+	RemoteModel string `json:"remote_model,omitempty"`
+
+	// RemoteURL is the URL of the upstream Ollama host that generated the response.
+	RemoteURL string `json:"remote_host,omitempty"`
 
 	// CreatedAt is the timestamp of the response.
 	CreatedAt time.Time `json:"created_at"`

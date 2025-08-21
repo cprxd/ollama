@@ -29,6 +29,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ollama/ollama/api"
+	"github.com/ollama/ollama/auth"
 	"github.com/ollama/ollama/discover"
 	"github.com/ollama/ollama/envconfig"
 	"github.com/ollama/ollama/format"
@@ -218,6 +219,8 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 
 		fn := func(resp api.GenerateResponse) error {
 			resp.Model = origModel
+			resp.RemoteModel = m.Config.RemoteModel
+			resp.RemoteURL = m.Config.RemoteURL
 
 			data, err := json.Marshal(resp)
 			if err != nil {
@@ -241,6 +244,18 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 		client := api.NewClient(remoteURL, http.DefaultClient)
 		err = client.Generate(c, &req, fn)
 		if err != nil {
+			var sErr api.AuthorizationError
+			if errors.As(err, &sErr) && sErr.StatusCode == http.StatusUnauthorized {
+				// todo get the correct server pubkey
+				pk, pkErr := auth.GetPublicKey()
+				if pkErr != nil {
+					slog.Error("couldn't get public key", "error", pkErr)
+					c.JSON(http.StatusUnauthorized, gin.H{"error": "error getting public key"})
+					return
+				}
+				c.JSON(http.StatusUnauthorized, gin.H{"public_key": pk})
+				return
+			}
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -1688,6 +1703,8 @@ func (s *Server) ChatHandler(c *gin.Context) {
 
 		fn := func(resp api.ChatResponse) error {
 			resp.Model = origModel
+			resp.RemoteModel = m.Config.RemoteModel
+			resp.RemoteURL = m.Config.RemoteURL
 
 			data, err := json.Marshal(resp)
 			if err != nil {

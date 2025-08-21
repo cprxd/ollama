@@ -73,21 +73,32 @@ func (m *Model) Capabilities() []model.Capability {
 	capabilities := []model.Capability{}
 
 	// Check for completion capability
-	f, err := gguf.Open(m.ModelPath)
-	if err == nil {
-		defer f.Close()
+	if m.ModelPath != "" {
+		f, err := gguf.Open(m.ModelPath)
+		if err == nil {
+			defer f.Close()
 
-		if f.KeyValue("pooling_type").Valid() {
-			capabilities = append(capabilities, model.CapabilityEmbedding)
+			if f.KeyValue("pooling_type").Valid() {
+				capabilities = append(capabilities, model.CapabilityEmbedding)
+			} else {
+				// If no embedding is specified, we assume the model supports completion
+				capabilities = append(capabilities, model.CapabilityCompletion)
+			}
+			if f.KeyValue("vision.block_count").Valid() {
+				capabilities = append(capabilities, model.CapabilityVision)
+			}
 		} else {
-			// If no embedding is specified, we assume the model supports completion
-			capabilities = append(capabilities, model.CapabilityCompletion)
+			slog.Error("couldn't open model file", "error", err)
 		}
-		if f.KeyValue("vision.block_count").Valid() {
-			capabilities = append(capabilities, model.CapabilityVision)
+	} else if strings.HasPrefix(m.Config.RemoteModel, "gpt-oss") {
+		// for remote gpt-oss models, just assume hard code in capabilities for now
+		return []model.Capability{
+			model.CapabilityCompletion,
+			model.CapabilityTools,
+			model.CapabilityThinking,
 		}
 	} else {
-		slog.Error("couldn't open model file", "error", err)
+		slog.Warn("unknown capabilities for model", "model", m.Name)
 	}
 
 	if m.Template == nil {

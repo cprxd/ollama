@@ -134,7 +134,7 @@ func LoadTimeout() (loadTimeout time.Duration) {
 	return loadTimeout
 }
 
-func Remotes() ([]string) {
+func Remotes() []string {
 	var r []string
 	raw := strings.TrimSpace(Var("OLLAMA_REMOTES"))
 	if raw == "" {
