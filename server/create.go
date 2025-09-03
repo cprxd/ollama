@@ -93,29 +93,23 @@ func (s *Server) CreateHandler(c *gin.Context) {
 
 		if r.From != "" {
 			slog.Debug("create model from model name")
-			parts := strings.SplitN(r.From, "@", 2)
-			fName := parts[0]
-			if len(parts) == 2 {
-				if _, ok := r.Remotes[parts[1]]; !ok {
-					ch <- gin.H{"error": "unknown remote", "status": http.StatusBadRequest}
-					return
-				}
-				ru, err := remoteURL(r.Remotes[parts[1]])
-				if err != nil {
-					ch <- gin.H{"error": "bad remote", "status": http.StatusBadRequest}
-					return
-				}
-				config.RemoteModel = parts[0]
-				config.RemoteURL = ru
-				remote = true
-			}
-			fromName := model.ParseName(fName)
+			slog.Debug("create", "from", r.From)
+			fromName := model.ParseName(r.From)
 			if !fromName.IsValid() {
 				ch <- gin.H{"error": errtypes.InvalidModelNameErrMsg, "status": http.StatusBadRequest}
 				return
 			}
+			if r.RemoteURL != "" {
+				ru, err := remoteURL(r.RemoteURL)
+				if err != nil {
+					ch <- gin.H{"error": "bad remote", "status": http.StatusBadRequest}
+					return
+				}
 
-			if !remote {
+				config.RemoteModel = r.From
+				config.RemoteURL = ru
+				remote = true
+			} else {
 				ctx, cancel := context.WithCancel(c.Request.Context())
 				defer cancel()
 
@@ -158,6 +152,54 @@ func (s *Server) CreateHandler(c *gin.Context) {
 
 		if len(adapterLayers) > 0 {
 			baseLayers = append(baseLayers, adapterLayers...)
+		}
+
+		if r.Info != nil {
+			caps, ok := r.Info["capabilities"]
+			if ok {
+				switch tcaps := caps.(type) {
+				case []any:
+					caps := make([]string, len(tcaps))
+					for i, c := range tcaps {
+						str, ok := c.(string)
+						if !ok {
+							continue
+						}
+						caps[i] = str
+					}
+					config.Capabilities = append(config.Capabilities, caps...)
+				}
+			}
+
+			strFromInfo := func(k string) string {
+				v, ok := r.Info[k]
+				if ok {
+					val := v.(string)
+					return val
+				}
+				return ""
+			}
+
+			vFromInfo := func(k string) float64 {
+				v, ok := r.Info[k]
+				if ok {
+					val := v.(float64)
+					return val
+				}
+				return 0
+			}
+
+			config.ModelFamily = strFromInfo("model_family")
+			if config.ModelFamily != "" {
+				config.ModelFamilies = []string{config.ModelFamily}
+			}
+
+			config.FileType = strFromInfo("quantization_level")
+			config.ModelType = strFromInfo("parameter_size")
+			config.ContextLen = int(vFromInfo("context_length"))
+			config.EmbedLen = int(vFromInfo("embedding_length"))
+
+			fmt.Printf("config = %#v\n", config)
 		}
 
 		if err := createModel(r, name, baseLayers, config, fn); err != nil {

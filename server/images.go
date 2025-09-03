@@ -90,12 +90,9 @@ func (m *Model) Capabilities() []model.Capability {
 		} else {
 			slog.Error("couldn't open model file", "error", err)
 		}
-	} else if strings.HasPrefix(m.Config.RemoteModel, "gpt-oss") {
-		// for remote gpt-oss models, just assume hard code in capabilities for now
-		return []model.Capability{
-			model.CapabilityCompletion,
-			model.CapabilityTools,
-			model.CapabilityThinking,
+	} else if len(m.Config.Capabilities) > 0 {
+		for _, c := range m.Config.Capabilities {
+			capabilities = append(capabilities, model.Capability(c))
 		}
 	} else {
 		slog.Warn("unknown capabilities for model", "model", m.Name)
@@ -118,6 +115,11 @@ func (m *Model) Capabilities() []model.Capability {
 	// Check for vision capability in projector-based models
 	if len(m.ProjectorPaths) > 0 {
 		capabilities = append(capabilities, model.CapabilityVision)
+	}
+
+	// Skip the thinking check if it's already set
+	if slices.Contains(capabilities, "thinking") {
+		return capabilities
 	}
 
 	// Check for thinking capability
@@ -247,11 +249,16 @@ type ConfigV2 struct {
 	ModelFormat   string   `json:"model_format"`
 	ModelFamily   string   `json:"model_family"`
 	ModelFamilies []string `json:"model_families"`
-	ModelType     string   `json:"model_type"`
-	FileType      string   `json:"file_type"`
+	ModelType     string   `json:"model_type"` // shown as Parameter Size
+	FileType      string   `json:"file_type"`  // shown as Quantization Level
 
 	RemoteURL   string `json:"remote_url,omitempty"`
 	RemoteModel string `json:"remote_model,omitempty"`
+
+	// used for remotes
+	Capabilities []string `json:"capabilities,omitempty"`
+	ContextLen   int      `json:"context_length,omitempty"`
+	EmbedLen     int      `json:"embedding_length,omitempty"`
 
 	// required by spec
 	Architecture string `json:"architecture"`

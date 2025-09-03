@@ -456,19 +456,44 @@ type EmbeddingResponse struct {
 
 // CreateRequest is the request passed to [Client.Create].
 type CreateRequest struct {
-	Model    string `json:"model"`
-	Stream   *bool  `json:"stream,omitempty"`
+	// Model is the model name to create.
+	Model string `json:"model"`
+
+	// Stream specifies whether the response is streaming; it is true by default.
+	Stream *bool `json:"stream,omitempty"`
+
+	// Quantize is the quantization format for the model; leave blank to not change the quantization level.
 	Quantize string `json:"quantize,omitempty"`
 
-	From       string            `json:"from,omitempty"`
-	Files      map[string]string `json:"files,omitempty"`
-	Adapters   map[string]string `json:"adapters,omitempty"`
-	Remotes    map[string]string `json:"remotes,omitempty"`
-	Template   string            `json:"template,omitempty"`
-	License    any               `json:"license,omitempty"`
-	System     string            `json:"system,omitempty"`
-	Parameters map[string]any    `json:"parameters,omitempty"`
-	Messages   []Message         `json:"messages,omitempty"`
+	// From is the name of the model or file to use as the source.
+	From string `json:"from,omitempty"`
+
+	// RemoteURL is the URL of the upstream ollama API for the model (if any).
+	RemoteURL string `json:"remote_url,omitempty"`
+
+	// Files is a map of files include when creating the model.
+	Files map[string]string `json:"files,omitempty"`
+
+	// Adapters is a map of LoRA adapters to include when creating the model.
+	Adapters map[string]string `json:"adapters,omitempty"`
+
+	// Template is the template used when constructing a request to the model.
+	Template string `json:"template,omitempty"`
+
+	// License is a string or list of strings for licenses.
+	License any `json:"license,omitempty"`
+
+	// System is the system prompt for the model.
+	System string `json:"system,omitempty"`
+
+	// Parameters is a map of hyper-parameters which are applied to the model.
+	Parameters map[string]any `json:"parameters,omitempty"`
+
+	// Messages is a list of messages added to the model before chat and generation requests.
+	Messages []Message `json:"messages,omitempty"`
+
+	// Info is a map of additional information for the model
+	Info map[string]any `json:"info,omitempty"`
 
 	// Deprecated: set the model name with Model instead
 	Name string `json:"name"`
@@ -508,6 +533,8 @@ type ShowResponse struct {
 	System        string             `json:"system,omitempty"`
 	Details       ModelDetails       `json:"details,omitempty"`
 	Messages      []Message          `json:"messages,omitempty"`
+	RemoteModel   string             `json:"remote_model,omitempty"`
+	RemoteURL     string             `json:"remote_url,omitempty"`
 	ModelInfo     map[string]any     `json:"model_info,omitempty"`
 	ProjectorInfo map[string]any     `json:"projector_info,omitempty"`
 	Tensors       []Tensor           `json:"tensors,omitempty"`
@@ -566,12 +593,14 @@ type ProcessResponse struct {
 
 // ListModelResponse is a single model description in [ListResponse].
 type ListModelResponse struct {
-	Name       string       `json:"name"`
-	Model      string       `json:"model"`
-	ModifiedAt time.Time    `json:"modified_at"`
-	Size       int64        `json:"size"`
-	Digest     string       `json:"digest"`
-	Details    ModelDetails `json:"details,omitempty"`
+	Name        string       `json:"name"`
+	Model       string       `json:"model"`
+	RemoteModel string       `json:"remote_model,omitempty"`
+	RemoteURL   string       `json:"remote_url,omitempty"`
+	ModifiedAt  time.Time    `json:"modified_at"`
+	Size        int64        `json:"size"`
+	Digest      string       `json:"digest"`
+	Details     ModelDetails `json:"details,omitempty"`
 }
 
 // ProcessModelResponse is a single model description in [ProcessResponse].

@@ -996,6 +996,11 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 		ModifiedAt:   manifest.fi.ModTime(),
 	}
 
+	if m.Config.RemoteURL != "" {
+		resp.RemoteURL = m.Config.RemoteURL
+		resp.RemoteModel = m.Config.RemoteModel
+	}
+
 	var params []string
 	cs := 30
 	for k, v := range m.Options {
@@ -1107,11 +1112,13 @@ func (s *Server) ListHandler(c *gin.Context) {
 
 		// tag should never be masked
 		models = append(models, api.ListModelResponse{
-			Model:      n.DisplayShortest(),
-			Name:       n.DisplayShortest(),
-			Size:       m.Size(),
-			Digest:     m.digest,
-			ModifiedAt: m.fi.ModTime(),
+			Model:       n.DisplayShortest(),
+			Name:        n.DisplayShortest(),
+			RemoteModel: cf.RemoteModel,
+			RemoteURL:   cf.RemoteURL,
+			Size:        m.Size(),
+			Digest:      m.digest,
+			ModifiedAt:  m.fi.ModTime(),
 			Details: api.ModelDetails{
 				Format:            cf.ModelFormat,
 				Family:            cf.ModelFamily,
@@ -1371,6 +1378,9 @@ func (s *Server) GenerateRoutes(rc *ollama.Registry) (http.Handler, error) {
 	r.POST("/api/show", s.ShowHandler)
 	r.DELETE("/api/delete", s.DeleteHandler)
 
+	r.POST("/api/signin", s.SigninHandler)
+	r.POST("/api/signout", s.SignoutHandler)
+
 	// Create
 	r.POST("/api/create", s.CreateHandler)
 	r.POST("/api/blobs/:digest", s.CreateBlobHandler)
@@ -1567,6 +1577,12 @@ func streamResponse(c *gin.Context, ch chan any) {
 	})
 }
 
+func (s *Server) SigninHandler(c *gin.Context) {
+}
+
+func (s *Server) SignoutHandler(c *gin.Context) {
+}
+
 func (s *Server) PsHandler(c *gin.Context) {
 	models := []api.ProcessModelResponse{}
 
@@ -1665,14 +1681,14 @@ func (s *Server) ChatHandler(c *gin.Context) {
 	if m.Config.RemoteURL != "" && m.Config.RemoteModel != "" {
 		origModel := req.Model
 
-		u, err := url.Parse(m.Config.RemoteURL)
+		remoteURL, err := url.Parse(m.Config.RemoteURL)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
 
-		if !slices.Contains(envconfig.Remotes(), u.Hostname()) {
-			slog.Info("remote model", "remotes", envconfig.Remotes(), "remoteURL", m.Config.RemoteURL)
+		if !slices.Contains(envconfig.Remotes(), remoteURL.Hostname()) {
+			slog.Info("remote model", "remotes", envconfig.Remotes(), "remoteURL", m.Config.RemoteURL, "hostname", remoteURL.Hostname())
 			c.JSON(http.StatusBadRequest, gin.H{"error": "this server cannot run this remote model"})
 			return
 		}
@@ -1693,12 +1709,6 @@ func (s *Server) ChatHandler(c *gin.Context) {
 			if _, ok := req.Options[k]; !ok {
 				req.Options[k] = v
 			}
-		}
-		remoteURL, err := url.Parse(m.Config.RemoteURL)
-		if err != nil {
-			// todo request error?
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
 		}
 
 		fn := func(resp api.ChatResponse) error {

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"strconv"
@@ -58,7 +59,6 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 	var messages []api.Message
 	var licenses []string
 	params := make(map[string]any)
-	remotes := make(map[string]string)
 
 	for _, c := range f.Commands {
 		switch c.Name {
@@ -84,12 +84,7 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 				}
 			}
 		case "remote":
-			// todo validate the remote name/ip
-			parts := strings.SplitN(c.Args, " ", 2)
-			if len(parts) != 2 {
-				return nil, fmt.Errorf("invalid remote specified '%s'", c.Args)
-			}
-			remotes[parts[0]] = parts[1]
+			req.RemoteURL = c.Args
 		case "adapter":
 			path, err := expandPath(c.Args, relativeDir)
 			if err != nil {
@@ -142,9 +137,6 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 	}
 	if len(licenses) > 0 {
 		req.License = licenses
-	}
-	if len(remotes) > 0 {
-		req.Remotes = remotes
 	}
 
 	return req, nil
@@ -331,8 +323,6 @@ func (c Command) String() string {
 	switch c.Name {
 	case "model":
 		fmt.Fprintf(&sb, "FROM %s", c.Args)
-	case "remote":
-		fmt.Fprintf(&sb, "REMOTE %s", c.Args)
 	case "license", "template", "system", "adapter":
 		fmt.Fprintf(&sb, "%s %s", strings.ToUpper(c.Name), quote(c.Args))
 	case "message":
@@ -359,7 +349,8 @@ const (
 var (
 	errMissingFrom        = errors.New("no FROM line")
 	errInvalidMessageRole = errors.New("message role must be one of \"system\", \"user\", or \"assistant\"")
-	errInvalidCommand     = errors.New("command must be one of \"from\", \"remote\", \"license\", \"template\", \"system\", \"adapter\", \"parameter\", or \"message\"")
+	errInvalidCommand     = errors.New("command must be one of \"from\", \"license\", \"template\", \"system\", \"adapter\", \"parameter\", or \"message\"")
+	errInvalidFromFlag    = errors.New("invalid flag. only --remote_url is supported")
 )
 
 type ParserError struct {
@@ -423,8 +414,6 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 				switch s := strings.ToLower(b.String()); s {
 				case "from":
 					cmd.Name = "model"
-				case "remote":
-					cmd.Name = "remote"
 				case "parameter":
 					// transition to stateParameter which sets command name
 					next = stateParameter
@@ -462,9 +451,23 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 					s = role + ": " + s
 					role = ""
 				}
+				if cmd.Name == "model" {
+					parts := regexp.MustCompile(`\s+--remote_url\s+`).Split(s, -1)
 
-				cmd.Args = s
-				f.Commands = append(f.Commands, cmd)
+					if len(parts) == 1 {
+						cmd.Args = parts[0]
+						f.Commands = append(f.Commands, cmd)
+					} else if len(parts) == 2 {
+						cmd.Args = parts[0]
+						f.Commands = append(f.Commands, cmd, Command{Name: "remote", Args: parts[1]})
+					} else {
+						// error here
+						fmt.Printf("parts = %#v\n", parts)
+					}
+				} else {
+					cmd.Args = s
+					f.Commands = append(f.Commands, cmd)
+				}
 			}
 
 			b.Reset()
@@ -621,7 +624,7 @@ func isValidMessageRole(role string) bool {
 
 func isValidCommand(cmd string) bool {
 	switch strings.ToLower(cmd) {
-	case "from", "remote", "license", "template", "system", "adapter", "parameter", "message":
+	case "from", "license", "template", "system", "adapter", "parameter", "message":
 		return true
 	default:
 		return false
