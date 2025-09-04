@@ -391,7 +391,10 @@ func testCache(t *testing.T, backend ml.Backend, cache Cache, tests []testCase) 
 			context := backend.NewContext()
 			defer context.Close()
 
-			err := cache.StartForward(context, input.Batch{Positions: test.pos, Sequences: test.seqs}, false)
+			err := cache.StartForward(context, input.Batch{
+				Positions: context.FromIntSlice(test.pos, len(test.pos)),
+				Sequences: test.seqs,
+			}, false)
 			if err != nil {
 				panic(err)
 			}
@@ -431,7 +434,7 @@ func TestCanResume(t *testing.T) {
 	defer context.Close()
 
 	err := cache.StartForward(context, input.Batch{
-		Positions: []int32{0, 1, 2, 3},
+		Positions: context.FromIntSlice([]int32{0, 1, 2, 3}, 4),
 		Sequences: []int{0, 0, 0, 0},
 	}, false)
 	if err != nil {
@@ -458,7 +461,7 @@ func TestCanResume(t *testing.T) {
 
 	// shift window by adding position 4
 	err = cache.StartForward(context, input.Batch{
-		Positions: []int32{4, 5},
+		Positions: context.FromIntSlice([]int32{4, 5}, 2),
 		Sequences: []int{0, 0},
 	}, false)
 	if err != nil {
@@ -503,7 +506,7 @@ func TestCanResumeSWAMem(t *testing.T) {
 	defer context.Close()
 
 	err := cache.StartForward(context, input.Batch{
-		Positions: []int32{0, 1, 2, 3, 4, 5},
+		Positions: context.FromIntSlice([]int32{0, 1, 2, 3, 4, 5}, 6),
 		Sequences: []int{0, 0, 0, 0, 0, 0},
 	}, false)
 	if err != nil {
@@ -516,7 +519,7 @@ func TestCanResumeSWAMem(t *testing.T) {
 
 	// shift window by adding position 6
 	err = cache.StartForward(context, input.Batch{
-		Positions: []int32{6, 7},
+		Positions: context.FromIntSlice([]int32{6, 7}, 2),
 		Sequences: []int{0, 0},
 	}, false)
 	if err != nil {

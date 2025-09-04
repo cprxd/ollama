@@ -199,9 +199,9 @@ func (c *Causal) Close() {
 
 func (c *Causal) StartForward(ctx ml.Context, batch input.Batch, reserve bool) error {
 	c.curReserve = reserve
-	c.curBatchSize = len(batch.Positions)
 	c.curSequences = batch.Sequences
-	c.curPositions = batch.Positions
+	c.curPositions = batch.Positions.Ints()
+	c.curBatchSize = len(c.curPositions)
 	c.opts.Except = nil
 
 	if !c.curReserve {
@@ -218,7 +218,7 @@ func (c *Causal) StartForward(ctx ml.Context, batch input.Batch, reserve bool) e
 			return err
 		}
 
-		for i, pos := range batch.Positions {
+		for i, pos := range c.curPositions {
 			seq := batch.Sequences[i]
 
 			c.cells[c.curLoc+i] = cacheCell{pos: pos, sequences: []int{seq}}
