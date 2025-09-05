@@ -438,3 +438,12 @@ func (c *Client) Version(ctx context.Context) (string, error) {
 
 	return version.Version, nil
 }
+
+// Signout will disconnect an ollama instance from ollama.com
+func (c *Client) Signout(ctx context.Context, encodedKey string) error {
+	return c.do(ctx, http.MethodDelete, fmt.Sprintf("/api/user/keys/%s", encodedKey), nil, nil)
+}
+
+func (c *Client) Whoami(ctx context.Context) error {
+	return c.do(ctx, http.MethodPost, "/api/me", nil, nil)
+}

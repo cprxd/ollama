@@ -485,6 +485,16 @@ func RunHandler(cmd *cobra.Command, args []string) error {
 }
 
 func SigninHandler(cmd *cobra.Command, args []string) error {
+	client, err := api.ClientFromEnvironment()
+	if err != nil {
+		return err
+	}
+
+	err = client.Whoami(cmd.Context())
+	if err != nil {
+		return err
+	}
+
 	pubKey, pkErr := auth.GetPublicKey()
 	if pkErr != nil {
 		return pkErr
@@ -496,6 +506,22 @@ func SigninHandler(cmd *cobra.Command, args []string) error {
 }
 
 func SignoutHandler(cmd *cobra.Command, args []string) error {
+	pubKey, pkErr := auth.GetPublicKey()
+	if pkErr != nil {
+		return pkErr
+	}
+	encKey := base64.RawURLEncoding.EncodeToString([]byte(pubKey))
+
+	client, err := api.ClientFromEnvironment()
+	if err != nil {
+		return err
+	}
+
+	err = client.Signout(cmd.Context(), encKey)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("You have signed out of ollama.com\n")
 	return nil
 }
 

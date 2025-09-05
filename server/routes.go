@@ -1378,8 +1378,8 @@ func (s *Server) GenerateRoutes(rc *ollama.Registry) (http.Handler, error) {
 	r.POST("/api/show", s.ShowHandler)
 	r.DELETE("/api/delete", s.DeleteHandler)
 
-	r.POST("/api/signin", s.SigninHandler)
-	r.POST("/api/signout", s.SignoutHandler)
+	r.DELETE("/api/user/keys/:encodedKey", s.SignoutHandler)
+	r.POST("/api/me", s.WhoamiHandler)
 
 	// Create
 	r.POST("/api/create", s.CreateHandler)
@@ -1577,10 +1577,48 @@ func streamResponse(c *gin.Context, ch chan any) {
 	})
 }
 
-func (s *Server) SigninHandler(c *gin.Context) {
+func (s *Server) WhoamiHandler(c *gin.Context) {
+	u, err := url.Parse("https://ollama.com")
+	if err != nil {
+		slog.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "URL parse error"})
+		return
+	}
+
+	client := api.NewClient(u, http.DefaultClient)
+	err = client.Whoami(c)
+	if err != nil {
+		slog.Error(err.Error())
+	}
+	c.JSON(http.StatusOK, nil)
 }
 
 func (s *Server) SignoutHandler(c *gin.Context) {
+	encodedKey := c.Param("encodedKey")
+
+	u, err := url.Parse("https://ollama.com")
+	if err != nil {
+		slog.Error(err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "URL parse error"})
+		return
+	}
+
+	client := api.NewClient(u, http.DefaultClient)
+	slog.Info("SIGNOUT")
+	err = client.Signout(c, encodedKey)
+	if err != nil {
+		slog.Info(fmt.Sprintf("there was an issue: %s", err.Error()))
+		// todo add proper error checking here
+		slog.Error(err.Error())
+		if strings.Contains(err.Error(), "page not found") || strings.Contains(err.Error(), "invalid credentials") {
+			c.JSON(http.StatusNotFound, gin.H{"error": "you are not currently signed in"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "there was an error signing out"})
+		return
+	}
+
+	c.JSON(http.StatusOK, nil)
 }
 
 func (s *Server) PsHandler(c *gin.Context) {
