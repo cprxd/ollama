@@ -296,9 +296,9 @@ func loadOrUnloadModel(cmd *cobra.Command, opts *runOptions) error {
 		if r.RemoteModel != "" && opts.ShowConnect {
 			p.StopAndClear()
 			if strings.HasPrefix(r.RemoteURL, "https://ollama.com") {
-				fmt.Printf("Connecting to '%s' on Ollama Turbo ⚡\n", r.RemoteModel)
+				fmt.Fprintf(os.Stderr, "Connecting to '%s' on Ollama Turbo ⚡\n", r.RemoteModel)
 			} else {
-				fmt.Printf("Connecting to '%s' on '%s'\n", r.RemoteModel, r.RemoteURL)
+				fmt.Fprintf(os.Stderr, "Connecting to '%s' on '%s'\n", r.RemoteModel, r.RemoteURL)
 			}
 		}
 		return nil
