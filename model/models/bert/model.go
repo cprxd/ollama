@@ -133,6 +133,21 @@ func (o Options) headDim() int {
 
 func New(c fs.Config) (model.Model, error) {
 	return &Model{
+		WordPiece: model.NewWordPiece(
+			&model.Vocabulary{
+				Values: c.Strings("tokenizer.ggml.tokens"),
+				Scores: c.Floats("tokenizer.ggml.scores"),
+				Types:  c.Ints("tokenizer.ggml.token_type"),
+				AddBOS: c.Bool("tokenizer.ggml.add_bos_token", true),
+				BOS: []int32{
+					int32(cmp.Or(c.Uint("tokenizer.ggml.cls_token_id"), c.Uint("tokenizer.ggml.bos_token_id"))),
+				},
+				AddEOS: c.Bool("tokenizer.ggml.add_eos_token", true),
+				EOS: []int32{
+					int32(cmp.Or(c.Uint("tokenizer.ggml.seperator_token_id"), c.Uint("tokenizer.ggml.eos_token_id"))),
+				},
+			},
+		),
 		Layers: make([]EncoderLayer, c.Uint("block_count")),
 		Options: Options{
 			hiddenSize:  int(c.Uint("embedding_length")),
