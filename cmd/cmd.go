@@ -490,9 +490,15 @@ func SigninHandler(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = client.Whoami(cmd.Context())
+	user, err := client.Whoami(cmd.Context())
 	if err != nil {
 		return err
+	}
+
+	if user != nil && user.Name != "" {
+		fmt.Printf("You are already signed in to ollama.com as user '%s'\n", user.Name)
+		fmt.Println()
+		return nil
 	}
 
 	pubKey, pkErr := auth.GetPublicKey()
@@ -522,6 +528,7 @@ func SignoutHandler(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	fmt.Printf("You have signed out of ollama.com\n")
+	fmt.Println()
 	return nil
 }
 

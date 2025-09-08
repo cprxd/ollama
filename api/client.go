@@ -444,6 +444,10 @@ func (c *Client) Signout(ctx context.Context, encodedKey string) error {
 	return c.do(ctx, http.MethodDelete, fmt.Sprintf("/api/user/keys/%s", encodedKey), nil, nil)
 }
 
-func (c *Client) Whoami(ctx context.Context) error {
-	return c.do(ctx, http.MethodPost, "/api/me", nil, nil)
+func (c *Client) Whoami(ctx context.Context) (*UserResponse, error) {
+	var resp UserResponse
+	if err := c.do(ctx, http.MethodPost, "/api/me", nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }

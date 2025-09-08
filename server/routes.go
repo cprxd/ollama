@@ -1578,6 +1578,7 @@ func streamResponse(c *gin.Context, ch chan any) {
 }
 
 func (s *Server) WhoamiHandler(c *gin.Context) {
+	// todo allow other hosts
 	u, err := url.Parse("https://ollama.com")
 	if err != nil {
 		slog.Error(err.Error())
@@ -1586,16 +1587,17 @@ func (s *Server) WhoamiHandler(c *gin.Context) {
 	}
 
 	client := api.NewClient(u, http.DefaultClient)
-	err = client.Whoami(c)
+	user, err := client.Whoami(c)
 	if err != nil {
 		slog.Error(err.Error())
 	}
-	c.JSON(http.StatusOK, nil)
+	c.JSON(http.StatusOK, user)
 }
 
 func (s *Server) SignoutHandler(c *gin.Context) {
 	encodedKey := c.Param("encodedKey")
 
+	// todo allow other hosts
 	u, err := url.Parse("https://ollama.com")
 	if err != nil {
 		slog.Error(err.Error())
