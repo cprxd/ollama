@@ -194,12 +194,11 @@ func (s *Server) CreateHandler(c *gin.Context) {
 				config.ModelFamilies = []string{config.ModelFamily}
 			}
 
+			config.BaseName = strFromInfo("base_name")
 			config.FileType = strFromInfo("quantization_level")
 			config.ModelType = strFromInfo("parameter_size")
 			config.ContextLen = int(vFromInfo("context_length"))
 			config.EmbedLen = int(vFromInfo("embedding_length"))
-
-			fmt.Printf("config = %#v\n", config)
 		}
 
 		if err := createModel(r, name, baseLayers, config, fn); err != nil {

@@ -259,6 +259,7 @@ type ConfigV2 struct {
 	Capabilities []string `json:"capabilities,omitempty"`
 	ContextLen   int      `json:"context_length,omitempty"`
 	EmbedLen     int      `json:"embedding_length,omitempty"`
+	BaseName     string   `json:"base_name,omitempty"`
 
 	// required by spec
 	Architecture string `json:"architecture"`

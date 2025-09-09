@@ -192,6 +192,19 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 
 	if m.Config.RemoteURL != "" && m.Config.RemoteModel != "" {
 		origModel := req.Model
+
+		remoteURL, err := url.Parse(m.Config.RemoteURL)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		if !slices.Contains(envconfig.Remotes(), remoteURL.Hostname()) {
+			slog.Info("remote model", "remotes", envconfig.Remotes(), "remoteURL", m.Config.RemoteURL, "hostname", remoteURL.Hostname())
+			c.JSON(http.StatusBadRequest, gin.H{"error": "this server cannot run this remote model"})
+			return
+		}
+
 		req.Model = m.Config.RemoteModel
 
 		if req.Template == "" && m.Template.String() != "" {
@@ -232,13 +245,6 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 			}
 			c.Writer.Flush()
 			return nil
-		}
-
-		remoteURL, err := url.Parse(m.Config.RemoteURL)
-		if err != nil {
-			// todo request error?
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
 		}
 
 		client := api.NewClient(remoteURL, http.DefaultClient)
@@ -999,6 +1005,24 @@ func GetModelInfo(req api.ShowRequest) (*api.ShowResponse, error) {
 	if m.Config.RemoteURL != "" {
 		resp.RemoteURL = m.Config.RemoteURL
 		resp.RemoteModel = m.Config.RemoteModel
+
+		if m.Config.ModelFamily != "" {
+			resp.ModelInfo = make(map[string]any)
+			resp.ModelInfo["general.architecture"] = m.Config.ModelFamily
+
+			if m.Config.BaseName != "" {
+				resp.ModelInfo["general.basename"] = m.Config.BaseName
+			}
+
+			if m.Config.ContextLen > 0 {
+				resp.ModelInfo[fmt.Sprintf("%s.context_length", m.Config.ModelFamily)] = m.Config.ContextLen
+			}
+
+			if m.Config.EmbedLen > 0 {
+				resp.ModelInfo[fmt.Sprintf("%s.embedding_length", m.Config.ModelFamily)] = m.Config.EmbedLen
+			}
+
+		}
 	}
 
 	var params []string
