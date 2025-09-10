@@ -31,6 +31,7 @@ import (
 	"github.com/ollama/ollama/envconfig"
 	"github.com/ollama/ollama/format"
 	"github.com/ollama/ollama/fs/ggml"
+	"github.com/ollama/ollama/harmony"
 	"github.com/ollama/ollama/llama"
 	"github.com/ollama/ollama/logutil"
 	"github.com/ollama/ollama/ml"
@@ -1345,14 +1346,17 @@ type ImageData struct {
 }
 
 type CompletionRequest struct {
-	Prompt  string
-	Format  json.RawMessage
-	Images  []ImageData
-	Options *api.Options
+    Prompt  string
+    Format  json.RawMessage
+    Images  []ImageData
+    Options *api.Options
 
-	Grammar       string // set before sending the request to the subprocess
-	ParserType    parser.TokenParserType
-	PrefillString string
+    Grammar         string // set before sending the request to the subprocess
+    ParserType      parser.TokenParserType
+    PrefillString   string
+    // New fields aligned with upstream server completion signature
+    FunctionNameMap *harmony.FunctionNameMap
+    PrefillContent  *bool
 }
 
 // DoneReason represents the reason why a completion response is done
@@ -1508,14 +1512,14 @@ func (s *llmServer) Completion(ctx context.Context, req CompletionRequest, fn fu
 			if err := json.Unmarshal(evt, &c); err != nil {
 				return fmt.Errorf("error unmarshalling llm prediction response: %v", err)
 			}
-			switch {
-			// TODO(parthsareen): token repeat limit is now handled in the runner, this currently support legacy model and can be removed in the future
-			case strings.TrimSpace(c.Content) == lastToken && c.Content != "":
-				tokenRepeat++
-			default:
-				lastToken = strings.TrimSpace(c.Content)
-				tokenRepeat = 0
-			}
+        switch {
+        // TODO(parthsareen): token repeat limit is now handled in the runner, this currently support legacy model and can be removed in the future
+        case lastToken != "" && (strings.TrimSpace(c.Content) == lastToken || strings.TrimSpace(c.Thinking) == lastToken):
+            tokenRepeat++
+        default:
+            lastToken = strings.TrimSpace(c.Content)
+            tokenRepeat = 0
+        }
 
 			// 30 picked as an arbitrary max token repeat limit, modify as needed
 			if tokenRepeat > 30 {
