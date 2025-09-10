@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"slices"
 	"strconv"
@@ -82,6 +83,8 @@ func (f Modelfile) CreateRequest(relativeDir string) (*api.CreateRequest, error)
 					req.Files[k] = v
 				}
 			}
+		case "remote":
+			req.RemoteURL = c.Args
 		case "adapter":
 			path, err := expandPath(c.Args, relativeDir)
 			if err != nil {
@@ -347,6 +350,7 @@ var (
 	errMissingFrom        = errors.New("no FROM line")
 	errInvalidMessageRole = errors.New("message role must be one of \"system\", \"user\", or \"assistant\"")
 	errInvalidCommand     = errors.New("command must be one of \"from\", \"license\", \"template\", \"system\", \"adapter\", \"parameter\", or \"message\"")
+	errInvalidFromFlag    = errors.New("invalid flag. only --remote_url is supported")
 )
 
 type ParserError struct {
@@ -447,9 +451,23 @@ func ParseFile(r io.Reader) (*Modelfile, error) {
 					s = role + ": " + s
 					role = ""
 				}
+				if cmd.Name == "model" {
+					parts := regexp.MustCompile(`\s+--remote_url\s+`).Split(s, -1)
 
-				cmd.Args = s
-				f.Commands = append(f.Commands, cmd)
+					if len(parts) == 1 {
+						cmd.Args = parts[0]
+						f.Commands = append(f.Commands, cmd)
+					} else if len(parts) == 2 {
+						cmd.Args = parts[0]
+						f.Commands = append(f.Commands, cmd, Command{Name: "remote", Args: parts[1]})
+					} else {
+						// error here
+						fmt.Printf("parts = %#v\n", parts)
+					}
+				} else {
+					cmd.Args = s
+					f.Commands = append(f.Commands, cmd)
+				}
 			}
 
 			b.Reset()

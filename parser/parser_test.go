@@ -157,6 +157,11 @@ func TestParseFileFrom(t *testing.T) {
 			[]Command{{Name: "what", Args: "the"}, {Name: "model", Args: "lemons make lemonade"}},
 			nil,
 		},
+		{
+			"FROM gpt-oss:120b --remote_url ollama.com\n",
+			[]Command{{Name: "model", Args: "gpt-oss:120b"}, {Name: "remote", Args: "ollama.com"}},
+			nil,
+		},
 	}
 
 	for _, c := range cases {
@@ -724,6 +729,20 @@ MESSAGE assistant Hi! How are you?
 					{Role: "user", Content: "Hello there!"},
 					{Role: "assistant", Content: "Hi! How are you?"},
 				},
+			},
+		},
+		{
+			`FROM test-model:turbo --remote_url myhost.com
+PARAMETER temperature 0.5
+SYSTEM You are a turbo bot.
+LICENSE license1
+`,
+			&api.CreateRequest{
+				From:       "test-model:turbo",
+				RemoteURL:  "myhost.com",
+				Parameters: map[string]any{"temperature": float32(0.5)},
+				License:    []string{"license1"},
+				System:     "You are a turbo bot.",
 			},
 		},
 	}
