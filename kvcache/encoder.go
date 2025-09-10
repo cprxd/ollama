@@ -91,7 +91,7 @@ func (c *EncoderCache) Close() {
 func (c *EncoderCache) StartForward(ctx ml.Context, batch input.Batch, reserve bool) error {
 	// We work with the most recent image
 	if len(batch.Multimodal) > 0 {
-		c.curPos = batch.Positions[batch.Multimodal[len(batch.Multimodal)-1].Index]
+		c.curPos = batch.Positions.Ints()[batch.Multimodal[len(batch.Multimodal)-1].Index]
 	}
 
 	c.curReserve = reserve

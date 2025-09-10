@@ -47,8 +47,9 @@ func (c *WrapperCache) StartForward(ctx ml.Context, batch input.Batch, reserve b
 		if err != nil {
 			// unwind on error - Remove with endIndex set to math.MaxInt32 does not fail
 			for j := i - 1; j >= 0; j-- {
-				for k := range batch.Positions {
-					_ = c.caches[j].Remove(batch.Sequences[k], batch.Positions[k], math.MaxInt32)
+				curPositions := batch.Positions.Ints()
+				for k := range curPositions {
+					_ = c.caches[j].Remove(batch.Sequences[k], curPositions[k], math.MaxInt32)
 				}
 			}
 			return err

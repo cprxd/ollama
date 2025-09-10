@@ -97,8 +97,8 @@ func (l *Layer) Forward(ctx ml.Context, hiddenState, positionIDs, outputs ml.Ten
 	return hiddenState.Add(ctx, residual)
 }
 
-func (m *TextModel) Forward(ctx ml.Context, inputs, positions, outputs ml.Tensor, batch input.Batch, cache kvcache.Cache) ml.Tensor {
-	hiddenState := m.TokenEmbedding.Forward(ctx, inputs).Duplicate(ctx)
+func (m *TextModel) Forward(ctx ml.Context, batch input.Batch, cache kvcache.Cache) ml.Tensor {
+	hiddenState := m.TokenEmbedding.Forward(ctx, batch.Inputs).Duplicate(ctx)
 
 	// image embeddings
 	for _, image := range batch.Multimodal {
@@ -111,10 +111,10 @@ func (m *TextModel) Forward(ctx ml.Context, inputs, positions, outputs ml.Tensor
 
 		var lastLayerOutputs ml.Tensor
 		if i == len(m.Layers)-1 {
-			lastLayerOutputs = outputs
+			lastLayerOutputs = batch.Outputs
 		}
 
-		hiddenState = layer.Forward(ctx, hiddenState, positions, lastLayerOutputs, cache, m.TextOptions)
+		hiddenState = layer.Forward(ctx, hiddenState, batch.Positions, lastLayerOutputs, cache, m.TextOptions)
 	}
 
 	hiddenState = m.OutputNorm.Forward(ctx, hiddenState, m.eps)
