@@ -816,7 +816,7 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 		req.Options.TopP,
 		req.Options.MinP,
 		req.Options.Seed,
-		grammar,
+		nil,
 	)
 
 	seq, err := s.NewSequence(req.Prompt, req.Images, NewSequenceParams{
@@ -867,6 +867,12 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO(parthsareen): generalize grammar enablement on the fly for all thinking models
+	if harmonyMessageHandler == nil {
+		seq.sampler.SetGrammar(grammar)
+	}
+
+	grammarSet := false
 	for {
 		select {
 		case <-r.Context().Done():
@@ -884,6 +890,21 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 					close(seq.quit)
 					return
 				}
+<<<<<<< HEAD
+=======
+				lastToken = strings.TrimSpace(content)
+
+				var thinking string
+				if harmonyMessageHandler != nil {
+					var toolContent string
+					content, thinking, toolContent = harmonyMessageHandler.AddContent(content, harmonyToolParser)
+					harmonyToolParser.Add(toolContent)
+					if grammar != nil && harmonyMessageHandler.HarmonyParser.ConstraintsAllowed && !grammarSet {
+						seq.sampler.SetGrammar(grammar)
+						grammarSet = true
+					}
+				}
+>>>>>>> upstream/parth/enable-so-gpt-oss
 
 				if err := json.NewEncoder(w).Encode(&llm.CompletionResponse{
 					Content:  content,
