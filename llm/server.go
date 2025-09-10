@@ -1351,12 +1351,18 @@ type CompletionRequest struct {
     Images  []ImageData
     Options *api.Options
 
+<<<<<<< HEAD
     Grammar         string // set before sending the request to the subprocess
     ParserType      parser.TokenParserType
     PrefillString   string
     // New fields aligned with upstream server completion signature
     FunctionNameMap *harmony.FunctionNameMap
     PrefillContent  *bool
+=======
+	Grammar     string // set before sending the request to the subprocess
+	UseHarmony  bool
+	LastMessage *api.Message
+>>>>>>> upstream/parth/move-harmony-to-runner
 }
 
 // DoneReason represents the reason why a completion response is done
@@ -1512,6 +1518,7 @@ func (s *llmServer) Completion(ctx context.Context, req CompletionRequest, fn fu
 			if err := json.Unmarshal(evt, &c); err != nil {
 				return fmt.Errorf("error unmarshalling llm prediction response: %v", err)
 			}
+<<<<<<< HEAD
         switch {
         // TODO(parthsareen): token repeat limit is now handled in the runner, this currently support legacy model and can be removed in the future
         case lastToken != "" && (strings.TrimSpace(c.Content) == lastToken || strings.TrimSpace(c.Thinking) == lastToken):
@@ -1520,6 +1527,16 @@ func (s *llmServer) Completion(ctx context.Context, req CompletionRequest, fn fu
             lastToken = strings.TrimSpace(c.Content)
             tokenRepeat = 0
         }
+=======
+			switch {
+			// TODO(parthsareen): token repeat limit is now handled in the runner, this currently support legacy model and can be removed in the future
+			case strings.TrimSpace(c.Content) == lastToken && c.Content != "":
+				tokenRepeat++
+			default:
+				lastToken = strings.TrimSpace(c.Content)
+				tokenRepeat = 0
+			}
+>>>>>>> upstream/parth/move-harmony-to-runner
 
 			// 30 picked as an arbitrary max token repeat limit, modify as needed
 			if tokenRepeat > 30 {

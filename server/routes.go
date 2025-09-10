@@ -278,6 +278,7 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 	}
 
 	useHarmony := harmony.ShouldUseHarmony(m.Config.ModelFamily, m.Template) && !req.Raw
+<<<<<<< HEAD
 	var parserType parser.TokenParserType
 	if useHarmony {
 		parserType = parser.TokenParserTypeHarmony
@@ -287,6 +288,11 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 	var functionNameMap *harmony.FunctionNameMap
 
 	if useHarmony {
+=======
+	var functionNameMap *harmony.FunctionNameMap
+
+	if useHarmony {
+>>>>>>> upstream/parth/move-harmony-to-runner
 		functionNameMap = harmony.NewFunctionNameMap()
 	}
 
@@ -435,7 +441,11 @@ func (s *Server) GenerateHandler(c *gin.Context) {
 			Images:     images,
 			Format:     req.Format,
 			Options:    opts,
+<<<<<<< HEAD
 			ParserType: parserType,
+=======
+			UseHarmony: useHarmony,
+>>>>>>> upstream/parth/move-harmony-to-runner
 		}, func(cr llm.CompletionResponse) {
 			res := api.GenerateResponse{
 				Model:     req.Model,
@@ -1829,6 +1839,7 @@ func (s *Server) ChatHandler(c *gin.Context) {
 	msgs = filterThinkTags(msgs, m)
 
 	useHarmony := harmony.ShouldUseHarmony(m.Config.ModelFamily, m.Template)
+<<<<<<< HEAD
 	var parserType parser.TokenParserType
 	if useHarmony {
 		parserType = parser.TokenParserTypeHarmony
@@ -1842,6 +1853,13 @@ func (s *Server) ChatHandler(c *gin.Context) {
 	// TODO(parthsareen): this can be abstracted to not be model specific and potentially moved to the runner
 	if useHarmony {
 		prefillString = harmony.Prefill(msgs[len(msgs)-1])
+=======
+
+	processedTools := req.Tools
+	var functionNameMap *harmony.FunctionNameMap
+	// TODO(parthsareen): this can be abstracted to not be model specific and potentially moved to the runner
+	if useHarmony {
+>>>>>>> upstream/parth/move-harmony-to-runner
 		functionNameMap = harmony.NewFunctionNameMap()
 		// make a copy of tools to pass to the chat prompt. Function names may be
 		// renamed to be valid Harmony function names.
@@ -1901,12 +1919,21 @@ func (s *Server) ChatHandler(c *gin.Context) {
 		defer close(ch)
 
 		if err := r.Completion(c.Request.Context(), llm.CompletionRequest{
+<<<<<<< HEAD
 			Prompt:        prompt,
 			Images:        images,
 			Format:        req.Format,
 			Options:       opts,
 			ParserType:    parserType,
 			PrefillString: prefillString,
+=======
+			Prompt:      prompt,
+			Images:      images,
+			Format:      req.Format,
+			Options:     opts,
+			UseHarmony:  useHarmony,
+			LastMessage: &msgs[len(msgs)-1],
+>>>>>>> upstream/parth/move-harmony-to-runner
 		}, func(r llm.CompletionResponse) {
 			res := api.ChatResponse{
 				Model:     req.Model,

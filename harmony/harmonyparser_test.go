@@ -541,7 +541,11 @@ func TestHarmonyMessageHandlerStreamingScenarios(t *testing.T) {
 	t.Run("thinking_then_content_streams", func(t *testing.T) {
 		handler := NewHarmonyMessageHandler()
 		handler.HarmonyParser.AddImplicitStart()
+<<<<<<< HEAD
 		tp := handler.ToolParser
+=======
+		tp := handler.CreateToolParser()
+>>>>>>> upstream/parth/move-harmony-to-runner
 		type step struct {
 			in           string
 			wantContent  string
@@ -554,7 +558,11 @@ func TestHarmonyMessageHandlerStreamingScenarios(t *testing.T) {
 			{in: "<|end|>", wantContent: ""},
 		}
 		for i, s := range steps {
+<<<<<<< HEAD
 			content, thinking, tool := handler.AddContent(s.in)
+=======
+			content, thinking, tool := handler.AddContent(s.in, tp)
+>>>>>>> upstream/parth/move-harmony-to-runner
 			if tool != "" {
 				tp.Add(tool)
 			}
@@ -567,7 +575,11 @@ func TestHarmonyMessageHandlerStreamingScenarios(t *testing.T) {
 	t.Run("content_streams_as_it_arrives", func(t *testing.T) {
 		handler := NewHarmonyMessageHandler()
 		handler.HarmonyParser.AddImplicitStart()
+<<<<<<< HEAD
 		tp := handler.ToolParser
+=======
+		tp := handler.CreateToolParser()
+>>>>>>> upstream/parth/move-harmony-to-runner
 		inputs := []string{
 			"<|start|>assistant<|message|>Hello",
 			", world",
@@ -575,7 +587,11 @@ func TestHarmonyMessageHandlerStreamingScenarios(t *testing.T) {
 		}
 		var got []string
 		for _, in := range inputs {
+<<<<<<< HEAD
 			content, thinking, tool := handler.AddContent(in)
+=======
+			content, thinking, tool := handler.AddContent(in, tp)
+>>>>>>> upstream/parth/move-harmony-to-runner
 			if tool != "" {
 				tp.Add(tool)
 			}
@@ -595,7 +611,11 @@ func TestHarmonyMessageHandlerStreamingScenarios(t *testing.T) {
 	t.Run("thinking_streams_separately_from_content", func(t *testing.T) {
 		handler := NewHarmonyMessageHandler()
 		handler.HarmonyParser.AddImplicitStart()
+<<<<<<< HEAD
 		tp := handler.ToolParser
+=======
+		tp := handler.CreateToolParser()
+>>>>>>> upstream/parth/move-harmony-to-runner
 		inputs := []string{
 			"<|channel|>analysis<|message|>Thinking...",
 			"<|end|>",
@@ -604,7 +624,11 @@ func TestHarmonyMessageHandlerStreamingScenarios(t *testing.T) {
 		}
 		var got []string
 		for _, in := range inputs {
+<<<<<<< HEAD
 			content, thinking, tool := handler.AddContent(in)
+=======
+			content, thinking, tool := handler.AddContent(in, tp)
+>>>>>>> upstream/parth/move-harmony-to-runner
 			if tool != "" {
 				tp.Add(tool)
 			}
@@ -624,7 +648,11 @@ func TestHarmonyMessageHandlerStreamingScenarios(t *testing.T) {
 	t.Run("partial_tags_buffer_until_complete", func(t *testing.T) {
 		handler := NewHarmonyMessageHandler()
 		handler.HarmonyParser.AddImplicitStart()
+<<<<<<< HEAD
 		tp := handler.ToolParser
+=======
+		tp := handler.CreateToolParser()
+>>>>>>> upstream/parth/move-harmony-to-runner
 		inputs := []string{
 			"<|chan",
 			"nel|>analysis<|mess",
@@ -637,7 +665,11 @@ func TestHarmonyMessageHandlerStreamingScenarios(t *testing.T) {
 		var thinkingPieces []string
 		var contentPieces []string
 		for _, in := range inputs {
+<<<<<<< HEAD
 			content, thinking, tool := handler.AddContent(in)
+=======
+			content, thinking, tool := handler.AddContent(in, tp)
+>>>>>>> upstream/parth/move-harmony-to-runner
 			if tool != "" {
 				tp.Add(tool)
 			}
@@ -659,7 +691,11 @@ func TestHarmonyMessageHandlerStreamingScenarios(t *testing.T) {
 	t.Run("simple_assistant_after_analysis", func(t *testing.T) {
 		handler := NewHarmonyMessageHandler()
 		handler.HarmonyParser.AddImplicitStart()
+<<<<<<< HEAD
 		tp := handler.ToolParser
+=======
+		tp := handler.CreateToolParser()
+>>>>>>> upstream/parth/move-harmony-to-runner
 		inputs := []string{
 			"<|channel|>analysis<|message|>Think",
 			"<|end|>",
@@ -668,7 +704,11 @@ func TestHarmonyMessageHandlerStreamingScenarios(t *testing.T) {
 		}
 		var contentSb, thinkingSb strings.Builder
 		for _, in := range inputs {
+<<<<<<< HEAD
 			content, thinking, tool := handler.AddContent(in)
+=======
+			content, thinking, tool := handler.AddContent(in, tp)
+>>>>>>> upstream/parth/move-harmony-to-runner
 			if tool != "" {
 				tp.Add(tool)
 			}
@@ -686,12 +726,20 @@ func TestHarmonyMessageHandlerStreamingScenarios(t *testing.T) {
 	t.Run("tool_call_parsed_and_returned_correctly", func(t *testing.T) {
 		handler := NewHarmonyMessageHandler()
 		handler.HarmonyParser.AddImplicitStart()
+<<<<<<< HEAD
 		tp := handler.ToolParser
+=======
+		tp := handler.CreateToolParser()
+>>>>>>> upstream/parth/move-harmony-to-runner
 		inputs := []string{
 			"<|channel|>commentary to=functions.calculate<|message|>{\"expression\":\"2+2\"}<|end|>",
 		}
 		for _, in := range inputs {
+<<<<<<< HEAD
 			content, thinking, tool := handler.AddContent(in)
+=======
+			content, thinking, tool := handler.AddContent(in, tp)
+>>>>>>> upstream/parth/move-harmony-to-runner
 			if content != "" || thinking != "" {
 				continue
 			}
@@ -711,14 +759,22 @@ func TestHarmonyMessageHandlerStreamingScenarios(t *testing.T) {
 	t.Run("tool_call_across_chunks", func(t *testing.T) {
 		handler := NewHarmonyMessageHandler()
 		handler.HarmonyParser.AddImplicitStart()
+<<<<<<< HEAD
 		tp := handler.ToolParser
+=======
+		tp := handler.CreateToolParser()
+>>>>>>> upstream/parth/move-harmony-to-runner
 		inputs := []string{
 			"<|channel|>commentary to=functions.calculate<|message|>{\"expression\":\"2+",
 			"2\"}",
 			"<|end|>",
 		}
 		for _, in := range inputs {
+<<<<<<< HEAD
 			content, thinking, tool := handler.AddContent(in)
+=======
+			content, thinking, tool := handler.AddContent(in, tp)
+>>>>>>> upstream/parth/move-harmony-to-runner
 			if content != "" || thinking != "" {
 				continue
 			}
