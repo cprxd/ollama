@@ -786,17 +786,18 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-<<<<<<< HEAD
-	parser := parser.NewTokenParser(req.ParserType, req.PrefillString)
-=======
-	var harmonyMessageHandler *harmony.HarmonyMessageHandler
-	var harmonyToolParser *harmony.HarmonyToolCallAccumulator
-	if req.UseHarmony {
-		harmonyMessageHandler = harmony.NewHarmonyMessageHandler()
-		harmonyMessageHandler.HarmonyParser.AddImplicitStartOrPrefill(req.LastMessage)
-		harmonyToolParser = harmonyMessageHandler.CreateToolParser()
-	}
->>>>>>> upstream/parth/move-harmony-to-runner
+		var tokenParser parser.TokenParser
+		var harmonyMessageHandler *harmony.HarmonyMessageHandler
+		var harmonyToolParser *harmony.HarmonyToolCallAccumulator
+		if req.UseHarmony {
+			harmonyMessageHandler = harmony.NewHarmonyMessageHandler()
+			// Seed parser based on last assistant message (analysis/final)
+			harmonyMessageHandler.HarmonyParser.AddImplicitStartOrPrefill(req.LastMessage)
+			harmonyToolParser = harmonyMessageHandler.CreateToolParser()
+		} else {
+			// Fallback to legacy token parser path
+			tokenParser = parser.NewTokenParser(req.ParserType, req.PrefillString)
+		}
 
 	if req.Options == nil {
 		opts := api.DefaultOptions()
@@ -895,48 +896,40 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			close(seq.quit)
 			return
-		case content, ok := <-seq.responses:
-			if ok {
-<<<<<<< HEAD
-				var thinking string
-				var err error
-				content, thinking, err = parser.AddContent(content)
-				if err != nil {
-					fmt.Println("err", err)
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-=======
-				if strings.TrimSpace(content) == lastToken {
-					tokenRepeat++
-				}
-				if tokenRepeat == tokenRepeatLimit {
-					http.Error(w, "token repeat limit reached", http.StatusInternalServerError)
->>>>>>> upstream/parth/move-harmony-to-runner
-					seq.doneReason = llm.DoneReasonTokenRepeatLimit
-					close(seq.quit)
-					return
-				}
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> upstream/parth/move-harmony-to-runner
-				lastToken = strings.TrimSpace(content)
+				case content, ok := <-seq.responses:
+					if ok {
+						// simple repeat guard to prevent infinite loops
+						if strings.TrimSpace(content) == lastToken {
+							tokenRepeat++
+						}
+						if tokenRepeat == tokenRepeatLimit {
+							http.Error(w, "token repeat limit reached", http.StatusInternalServerError)
+							seq.doneReason = llm.DoneReasonTokenRepeatLimit
+							close(seq.quit)
+							return
+						}
+						lastToken = strings.TrimSpace(content)
 
-				var thinking string
-				if harmonyMessageHandler != nil {
-					var toolContent string
-					content, thinking, toolContent = harmonyMessageHandler.AddContent(content, harmonyToolParser)
-					harmonyToolParser.Add(toolContent)
-<<<<<<< HEAD
-					if grammar != nil && harmonyMessageHandler.HarmonyParser.ConstraintsAllowed && !grammarSet {
-						seq.sampler.SetGrammar(grammar)
-						grammarSet = true
-					}
-				}
->>>>>>> upstream/parth/enable-so-gpt-oss
-=======
-				}
->>>>>>> upstream/parth/move-harmony-to-runner
+						var thinking string
+						if harmonyMessageHandler != nil {
+							var toolContent string
+							content, thinking, toolContent = harmonyMessageHandler.AddContent(content, harmonyToolParser)
+							harmonyToolParser.Add(toolContent)
+							if grammar != nil && harmonyMessageHandler.HarmonyParser.ConstraintsAllowed && !grammarSet {
+								seq.sampler.SetGrammar(grammar)
+								grammarSet = true
+							}
+						} else {
+							// legacy token parser path
+							var err error
+							content, thinking, err = tokenParser.AddContent(content)
+							if err != nil {
+								http.Error(w, err.Error(), http.StatusInternalServerError)
+								seq.doneReason = llm.DoneReasonUnknown
+								close(seq.quit)
+								return
+							}
+						}
 
 				if err := json.NewEncoder(w).Encode(&llm.CompletionResponse{
 					Content:  content,
@@ -948,33 +941,30 @@ func (s *Server) completion(w http.ResponseWriter, r *http.Request) {
 				}
 
 				flusher.Flush()
-			} else {
-<<<<<<< HEAD
-				toolCalls := parser.Drain()
-				fmt.Println("toolCalls", toolCalls)
-=======
-				var toolCalls []api.ToolCall
-				if harmonyMessageHandler != nil {
-					// these tools still need to be transformed to the original function name
-					toolName, toolContent := harmonyToolParser.Drain()
-					if toolName != nil {
-						*toolName = strings.TrimPrefix(*toolName, "functions.")
-						var args api.ToolCallFunctionArguments
-						if err := json.Unmarshal([]byte(toolContent), &args); err != nil {
-							http.Error(w, fmt.Sprintf("failed to unmarshal tool call function arguments: %v", err), http.StatusInternalServerError)
-							close(seq.quit)
-							return
+				} else {
+					var toolCalls []api.ToolCall
+					if harmonyMessageHandler != nil {
+						// these tools still need to be transformed to the original function name
+						toolName, toolContent := harmonyToolParser.Drain()
+						if toolName != nil {
+							*toolName = strings.TrimPrefix(*toolName, "functions.")
+							var args api.ToolCallFunctionArguments
+							if err := json.Unmarshal([]byte(toolContent), &args); err != nil {
+								http.Error(w, fmt.Sprintf("failed to unmarshal tool call function arguments: %v", err), http.StatusInternalServerError)
+								close(seq.quit)
+								return
+							}
+							toolCalls = append(toolCalls, api.ToolCall{
+								Function: api.ToolCallFunction{
+									Name:      *toolName,
+									Arguments: args,
+								},
+							})
 						}
-						toolCalls = append(toolCalls, api.ToolCall{
-							Function: api.ToolCallFunction{
-								Name:      *toolName,
-								Arguments: args,
-							},
-						})
+					} else {
+						// legacy token parser tools
+						toolCalls = tokenParser.Drain()
 					}
-				}
-
->>>>>>> upstream/parth/move-harmony-to-runner
 				if err := json.NewEncoder(w).Encode(&llm.CompletionResponse{
 					ToolCalls:          toolCalls,
 					Done:               true,

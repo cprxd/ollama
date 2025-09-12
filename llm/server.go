@@ -1351,18 +1351,18 @@ type CompletionRequest struct {
     Images  []ImageData
     Options *api.Options
 
-<<<<<<< HEAD
-    Grammar         string // set before sending the request to the subprocess
-    ParserType      parser.TokenParserType
-    PrefillString   string
-    // New fields aligned with upstream server completion signature
+    // Grammar and parsing options
+    Grammar       string // set before sending the request to the subprocess
+    ParserType    parser.TokenParserType
+    PrefillString string
+
+    // Upstream Harmony integration fields
+    UseHarmony  bool
+    LastMessage *api.Message
+
+    // Optional auxiliary fields (kept for compatibility with callers)
     FunctionNameMap *harmony.FunctionNameMap
     PrefillContent  *bool
-=======
-	Grammar     string // set before sending the request to the subprocess
-	UseHarmony  bool
-	LastMessage *api.Message
->>>>>>> upstream/parth/move-harmony-to-runner
 }
 
 // DoneReason represents the reason why a completion response is done

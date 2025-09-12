@@ -28,11 +28,11 @@ type TokenParser struct {
 const defaultTokenRepeatLimit = 30
 
 type MessageHandler interface {
-	AddContent(token string) (content, thinking string, toolContent string)
+    AddContent(token string) (content, thinking string, toolContent string)
 }
 
 type ParserInternals interface {
-	AddImplicitStartOrPrefill(prefillString string)
+    AddImplicitStartOrPrefill(prefillString string)
 }
 
 type ToolParser interface {
@@ -57,17 +57,39 @@ func (defaultToolParser) Add(token string) {}
 
 func (defaultToolParser) Drain() (*string, string) { return nil, "" }
 
+// harmonyMessageHandlerAdapter adapts HarmonyMessageHandler to the MessageHandler interface
+// by binding a per-request ToolParser instance.
+type harmonyMessageHandlerAdapter struct {
+    h  *harmony.HarmonyMessageHandler
+    tp *harmony.HarmonyToolCallAccumulator
+}
+
+func (a harmonyMessageHandlerAdapter) AddContent(token string) (string, string, string) {
+    return a.h.AddContent(token, a.tp)
+}
+
+type harmonyToolParserAdapter struct{ tp *harmony.HarmonyToolCallAccumulator }
+
+func (a harmonyToolParserAdapter) Add(token string)                 { a.tp.Add(token) }
+func (a harmonyToolParserAdapter) Drain() (*string, string)         { return a.tp.Drain() }
+
 func NewTokenParser(parserType TokenParserType, prefillString string) TokenParser {
-	switch parserType {
-	case TokenParserTypeHarmony:
-		harmonyMessageHandler := harmony.NewHarmonyMessageHandler()
-		harmonyMessageHandler.HarmonyParser.AddImplicitStartOrPrefill(prefillString)
-		return TokenParser{
-			messageHandler: harmonyMessageHandler,
-			parserEngine:   harmonyMessageHandler.HarmonyParser,
-			toolParser:     harmonyMessageHandler.ToolParser,
-			repeatLimit:    defaultTokenRepeatLimit,
-		}
+    switch parserType {
+    case TokenParserTypeHarmony:
+        harmonyMessageHandler := harmony.NewHarmonyMessageHandler()
+        // Backward-compat: interpret prefillString as a literal pre-seeded tag when provided
+        if strings.TrimSpace(prefillString) != "" {
+            harmonyMessageHandler.HarmonyParser.AddContent(prefillString)
+        } else {
+            harmonyMessageHandler.HarmonyParser.AddImplicitStart()
+        }
+        tp := harmonyMessageHandler.CreateToolParser()
+        return TokenParser{
+            messageHandler: harmonyMessageHandlerAdapter{h: harmonyMessageHandler, tp: tp},
+            parserEngine:   harmonyMessageHandler.HarmonyParser,
+            toolParser:     harmonyToolParserAdapter{tp: tp},
+            repeatLimit:    defaultTokenRepeatLimit,
+        }
 
 	default:
 		return TokenParser{

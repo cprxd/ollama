@@ -87,51 +87,29 @@ type HarmonyHeader struct {
 }
 
 func (s *HarmonyParser) AddImplicitStart() {
-	s.acc.WriteString("<|start|>assistant")
+    s.acc.WriteString("<|start|>assistant")
 }
 
-<<<<<<< HEAD
-func Prefill(lastMessage api.Message) string {
-	if lastMessage.Role != "assistant" {
-		return ""
-=======
 // AddImplicitStartOrPrefill adds an implicit start tag or prefill content based on the last message
 func (s *HarmonyParser) AddImplicitStartOrPrefill(lastMessage *api.Message) {
-	if lastMessage == nil {
-		s.AddImplicitStart()
-		return
-	}
+    if lastMessage == nil {
+        s.AddImplicitStart()
+        return
+    }
 
-	if lastMessage.Role != "assistant" {
-		s.AddImplicitStart()
-		return
->>>>>>> upstream/parth/move-harmony-to-runner
-	}
+    if lastMessage.Role != "assistant" {
+        s.AddImplicitStart()
+        return
+    }
 
-	switch {
-	case strings.TrimSpace(lastMessage.Content) != "":
-<<<<<<< HEAD
-		return "<|start|>assistant<|channel|>final<|message|>"
-	case strings.TrimSpace(lastMessage.Thinking) != "":
-		return "<|start|>assistant<|channel|>analysis<|message|>"
-	default:
-		return ""
-	}
-}
-
-// AddImplicitStartOrPrefill adds an implicit start tag or prefill string if provided
-func (s *HarmonyParser) AddImplicitStartOrPrefill(prefillString string) {
-	if strings.TrimSpace(prefillString) != "" {
-		s.acc.WriteString(prefillString)
-	} else {
-=======
-		s.acc.WriteString("<|start|>assistant<|channel|>final<|message|>")
-	case strings.TrimSpace(lastMessage.Thinking) != "":
-		s.acc.WriteString("<|start|>assistant<|channel|>analysis<|message|>")
-	default:
->>>>>>> upstream/parth/move-harmony-to-runner
-		s.AddImplicitStart()
-	}
+    switch {
+    case strings.TrimSpace(lastMessage.Content) != "":
+        s.acc.WriteString("<|start|>assistant<|channel|>final<|message|>")
+    case strings.TrimSpace(lastMessage.Thinking) != "":
+        s.acc.WriteString("<|start|>assistant<|channel|>analysis<|message|>")
+    default:
+        s.AddImplicitStart()
+    }
 }
 
 func (s *HarmonyParser) AddContent(content string) []HarmonyEvent {
@@ -307,10 +285,10 @@ const (
 // HarmonyMessageHandler processes harmony events and accumulates content appropriately.
 // This is a higher level interface that maps harmony concepts into ollama concepts
 type HarmonyMessageHandler struct {
-	state           harmonyMessageState
-	HarmonyParser   *HarmonyParser
-	FunctionNameMap *FunctionNameMap
-	ToolParser      *HarmonyToolCallAccumulator
+    state           harmonyMessageState
+    HarmonyParser   *HarmonyParser
+    FunctionNameMap *FunctionNameMap
+    ToolParser      *HarmonyToolCallAccumulator
 }
 
 // NewHarmonyMessageHandler creates a new message handler
@@ -330,39 +308,51 @@ func NewHarmonyMessageHandler() *HarmonyMessageHandler {
 	}
 }
 
+// CreateToolParser returns a new tool call accumulator for a request/session
+func (h *HarmonyMessageHandler) CreateToolParser() *HarmonyToolCallAccumulator {
+    return &HarmonyToolCallAccumulator{
+        state:           harmonyToolCallState_Normal,
+        currentToolName: nil,
+    }
+}
+
 // AddContent processes the content and returns the content, thinking, and tool content.
 // content and thinking are already fully parsed, but tool content still needs to be passed to the tool parser
-func (h *HarmonyMessageHandler) AddContent(content string) (string, string, string) {
-	contentSb := strings.Builder{}
-	thinkingSb := strings.Builder{}
-	toolContentSb := strings.Builder{}
+func (h *HarmonyMessageHandler) AddContent(content string, tp *HarmonyToolCallAccumulator) (string, string, string) {
+    contentSb := strings.Builder{}
+    thinkingSb := strings.Builder{}
+    toolContentSb := strings.Builder{}
 
-	events := h.HarmonyParser.AddContent(content)
-	for _, event := range events {
-		switch event := event.(type) {
-		case HarmonyEventHeaderComplete:
-			logutil.Trace("harmony event header complete", "header", event.Header)
-			switch event.Header.Channel {
-			case "analysis":
-				if event.Header.Recipient != "" {
-					h.state = harmonyMessageState_ToolCalling
-					// event.Header.Recipient is the tool name, something like
-					// "browser.search" for a built-in, or "functions.calc" for a
-					// custom one
-					h.ToolParser.SetToolName(event.Header.Recipient)
-				} else {
-					h.state = harmonyMessageState_Thinking
-				}
-			case "commentary":
-				if event.Header.Recipient != "" {
-					h.state = harmonyMessageState_ToolCalling
-					h.ToolParser.SetToolName(event.Header.Recipient)
-				} else {
-					h.state = harmonyMessageState_Normal
-				}
-			case "final":
-				h.state = harmonyMessageState_Normal
-				h.HarmonyParser.ConstraintsAllowed = true
+    events := h.HarmonyParser.AddContent(content)
+    for _, event := range events {
+        switch event := event.(type) {
+        case HarmonyEventHeaderComplete:
+            logutil.Trace("harmony event header complete", "header", event.Header)
+            switch event.Header.Channel {
+            case "analysis":
+                if event.Header.Recipient != "" {
+                    h.state = harmonyMessageState_ToolCalling
+                    // event.Header.Recipient is the tool name, something like
+                    // "browser.search" for a built-in, or "functions.calc" for a
+                    // custom one
+                    if tp != nil {
+                        tp.SetToolName(event.Header.Recipient)
+                    }
+                } else {
+                    h.state = harmonyMessageState_Thinking
+                }
+            case "commentary":
+                if event.Header.Recipient != "" {
+                    h.state = harmonyMessageState_ToolCalling
+                    if tp != nil {
+                        tp.SetToolName(event.Header.Recipient)
+                    }
+                } else {
+                    h.state = harmonyMessageState_Normal
+                }
+            case "final":
+                h.state = harmonyMessageState_Normal
+                h.HarmonyParser.ConstraintsAllowed = true
 			}
 		case HarmonyEventContentEmitted:
 			logutil.Trace("harmony event content", "content", event.Content, "state", h.state)
